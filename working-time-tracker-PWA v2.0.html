@@ -1,0 +1,1036 @@
+<!doctype html>
+<html lang="uk">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Work Report PWA v2.0</title>
+
+    <meta name="theme-color" content="#3b82f6" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta
+      name="apple-mobile-web-app-status-bar-style"
+      content="black-translucent"
+    />
+    <link
+      rel="apple-touch-icon"
+      href="https://cdn-icons-png.flaticon.com/512/3589/3589030.png"
+    />
+    <link rel="manifest" id="pwa-manifest" />
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+
+    <style>
+      @import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap");
+      body {
+        background-color: #f1f5f9;
+        font-family: "Inter", sans-serif;
+        -webkit-tap-highlight-color: transparent;
+      }
+      .card {
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+      }
+      .btn-start {
+        background: #10b981;
+      }
+      .btn-stop {
+        background: #ef4444;
+      }
+      .manage-btn {
+        font-size: 0.7rem;
+        color: #64748b;
+        text-decoration: underline;
+        cursor: pointer;
+      }
+
+      .day-group.collapsed .task-list {
+        display: none;
+      }
+      .day-header {
+        cursor: pointer;
+        user-select: none;
+      }
+
+      /* Стилі для перетягування */
+      .sortable-ghost {
+        opacity: 0.4;
+        background: #dbeafe !important;
+      }
+      .sortable-drag {
+        opacity: 0.9;
+        background: white !important;
+        box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1);
+      }
+      .handle {
+        cursor: grab;
+        padding: 10px;
+        margin: -10px;
+        color: #cbd5e1;
+      }
+      .handle:active {
+        cursor: grabbing;
+      }
+    </style>
+  </head>
+  <body class="p-4 md:p-8 pb-24">
+    <div class="max-w-6xl mx-auto">
+      <div
+        class="flex flex-col md:flex-row justify-between items-center mb-6 gap-4"
+      >
+        <h1 class="text-2xl font-bold text-slate-800 flex items-center gap-2">
+          <span class="bg-blue-600 text-white p-1 rounded-lg text-lg"> W </span>
+          Трекер функціональних дій
+        </h1>
+        <div class="flex gap-2 w-full md:w-auto">
+          <button
+            onclick="exportToExcel()"
+            class="flex-1 md:flex-none bg-emerald-600 text-white px-4 py-2 rounded-lg text-sm font-bold shadow-sm"
+          >
+            Excel
+          </button>
+          <button
+            onclick="exportToPDF()"
+            class="flex-1 md:flex-none bg-rose-600 text-white px-4 py-2 rounded-lg text-sm font-bold shadow-sm"
+          >
+            PDF
+          </button>
+          <button
+            onclick="exportToJSON()"
+            class="flex-1 md:flex-none bg-orange-600 text-white px-4 py-2 rounded-lg text-sm font-bold shadow-sm"
+          >
+            ↑ JSON
+          </button>
+          <input
+            type="file"
+            id="fileInput"
+            accept=".json"
+            style="display: none"
+          />
+          <button
+            onclick="importFromJSON()"
+            class="flex-1 md:flex-none bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-bold shadow-sm"
+          >
+            ↓ JSON
+          </button>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div class="space-y-6">
+          <div class="card p-5">
+            <h2
+              class="font-bold text-slate-700 mb-4 border-b pb-2 text-sm uppercase tracking-wide"
+            >
+              Дані працівника
+            </h2>
+            <div class="space-y-3">
+              <div>
+                <div class="flex justify-between items-center mb-1">
+                  <label class="text-[10px] font-bold text-slate-400 uppercase"
+                    >Напрямок</label
+                  >
+                  <span class="manage-btn" onclick="openManager('dirs')"
+                    >Редагувати</span
+                  >
+                </div>
+                <select
+                  id="userDir"
+                  class="w-full p-2 border rounded-md text-sm bg-white"
+                ></select>
+              </div>
+              <div>
+                <div class="flex justify-between items-center mb-1">
+                  <label class="text-[10px] font-bold text-slate-400 uppercase"
+                    >Відділ</label
+                  >
+                  <span class="manage-btn" onclick="openManager('depts')"
+                    >Редагувати</span
+                  >
+                </div>
+                <select
+                  id="userDept"
+                  class="w-full p-2 border rounded-md text-sm bg-white"
+                ></select>
+              </div>
+              <div>
+                <label
+                  class="block text-[10px] font-bold text-slate-400 uppercase mb-1"
+                  >Посада</label
+                >
+                <input
+                  type="text"
+                  id="userPos"
+                  class="w-full p-2 border rounded-md text-sm"
+                  placeholder="Ваша посада"
+                />
+              </div>
+              <div>
+                <label
+                  class="block text-[10px] font-bold text-slate-400 uppercase mb-1"
+                  >Прізвище та ім'я</label
+                >
+                <input
+                  type="text"
+                  id="userName"
+                  class="w-full p-2 border rounded-md text-sm"
+                  placeholder="Прізвище та Ім'я"
+                />
+              </div>
+            </div>
+          </div>
+
+          <div class="card p-5">
+            <h2
+              class="font-bold text-slate-700 mb-4 border-b pb-2 text-sm uppercase tracking-wide"
+            >
+              Параметри дня
+            </h2>
+            <div class="space-y-4">
+              <div>
+                <label
+                  class="block text-[10px] font-bold text-slate-400 uppercase mb-1"
+                  >Дата звіту</label
+                >
+                <input
+                  type="date"
+                  id="reportDate"
+                  class="w-full p-2 border rounded-md font-medium text-blue-600"
+                />
+              </div>
+              <div class="grid grid-cols-2 gap-3">
+                <div>
+                  <label class="text-[10px] font-bold text-slate-400 uppercase"
+                    >Початок дня</label
+                  >
+                  <input
+                    type="time"
+                    id="workStart"
+                    value="09:00"
+                    class="w-full p-2 border rounded-md text-sm"
+                  />
+                </div>
+                <div>
+                  <label class="text-[10px] font-bold text-slate-400 uppercase"
+                    >Кінець дня</label
+                  >
+                  <input
+                    type="time"
+                    id="workEnd"
+                    value="18:00"
+                    class="w-full p-2 border rounded-md text-sm"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="lg:col-span-2 space-y-6">
+          <div class="card p-6 border-t-4 border-blue-500">
+            <div class="mb-4">
+              <div class="flex justify-between items-center mb-1">
+                <label class="text-xs font-bold text-slate-500 uppercase"
+                  >Функціональна дія</label
+                >
+                <span class="manage-btn" onclick="openManager('actions')"
+                  >Шаблони</span
+                >
+              </div>
+              <input
+                list="actionList"
+                id="taskName"
+                placeholder="Введіть опис дії..."
+                class="w-full p-3 border rounded-xl text-lg font-medium outline-none focus:ring-2 focus:ring-blue-400 shadow-inner"
+              />
+              <datalist id="actionList"></datalist>
+            </div>
+
+            <div
+              class="flex flex-col md:flex-row justify-between items-end gap-4"
+            >
+              <div class="flex-1 w-full">
+                <div class="flex justify-between items-center mb-1">
+                  <label class="text-xs font-bold text-slate-500 uppercase"
+                    >Для кого виконується</label
+                  >
+                  <span class="manage-btn" onclick="openManager('targets')"
+                    >Редагувати</span
+                  >
+                </div>
+                <select
+                  id="taskTarget"
+                  class="w-full p-2.5 border rounded-md text-sm bg-white"
+                ></select>
+              </div>
+              <div class="text-right w-full md:w-auto">
+                <div
+                  id="timerDisplay"
+                  class="text-3xl font-mono font-bold text-blue-600 mb-1 hidden"
+                >
+                  00:00:00
+                </div>
+                <button
+                  id="toggleBtn"
+                  onclick="toggleTask()"
+                  class="w-full md:w-auto btn-start text-white px-10 py-4 rounded-xl font-bold shadow-md hover:opacity-90 transition-all text-lg"
+                >
+                  ▶ ПОЧАТИ
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div class="card overflow-hidden">
+            <div
+              class="p-4 bg-slate-50 border-b flex justify-between items-center"
+            >
+              <h3 class="font-bold text-slate-700 uppercase text-xs">
+                Журнал активності
+              </h3>
+              <div class="flex gap-4 items-center">
+                <span id="totalDisplay" class="text-xs font-bold text-blue-700"
+                  >Всього: 0 хв</span
+                >
+                <button
+                  onclick="handleClearAll()"
+                  class="text-[10px] text-red-500 font-bold uppercase"
+                >
+                  Очистити все
+                </button>
+              </div>
+            </div>
+            <div id="journalContainer" class="divide-y divide-slate-200"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div
+      id="editModal"
+      class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50"
+    >
+      <div class="bg-white rounded-xl p-6 w-full max-w-md">
+        <h3 class="font-bold text-lg mb-4">Редагувати подію</h3>
+        <div class="space-y-4">
+          <div>
+            <label class="text-[10px] font-bold text-slate-400 uppercase"
+              >Назва дії</label
+            >
+            <input
+              type="text"
+              id="editName"
+              class="w-full p-2 border rounded-md"
+            />
+          </div>
+          <div>
+            <label class="text-[10px] font-bold text-slate-400 uppercase"
+              >Для кого</label
+            >
+            <select
+              id="editTarget"
+              class="w-full p-2 border rounded-md text-sm"
+            ></select>
+          </div>
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <label class="text-[10px] font-bold text-slate-400 uppercase"
+                >Дата</label
+              >
+              <input
+                type="date"
+                id="editDate"
+                class="w-full p-2 border rounded-md"
+              />
+            </div>
+            <div>
+              <label class="text-[10px] font-bold text-slate-400 uppercase"
+                >Тривалість</label
+              >
+              <div class="flex items-center gap-1">
+                <input
+                  type="number"
+                  id="editHours"
+                  class="w-1/2 p-2 border rounded-md"
+                  placeholder="Год"
+                  min="0"
+                />
+                <span class="text-xs font-bold">:</span>
+                <input
+                  type="number"
+                  id="editMins"
+                  class="w-1/2 p-2 border rounded-md"
+                  placeholder="Хв"
+                  min="0"
+                  max="59"
+                  step="10"
+                />
+              </div>
+            </div>
+          </div>
+          <div class="flex gap-2 pt-2">
+            <button
+              onclick="saveEdit()"
+              class="flex-1 bg-blue-600 text-white py-2 rounded-lg font-bold"
+            >
+              Зберегти
+            </button>
+            <button
+              onclick="closeModal()"
+              class="flex-1 bg-slate-200 py-2 rounded-lg font-bold text-slate-600"
+            >
+              Скасувати
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div
+      id="managerModal"
+      class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50"
+    >
+      <div class="bg-white rounded-xl p-6 w-full max-w-md">
+        <h3 id="managerTitle" class="font-bold text-lg mb-4">Налаштування</h3>
+        <div class="space-y-4">
+          <div class="flex gap-2">
+            <input
+              type="text"
+              id="newItemInput"
+              placeholder="Додати запис..."
+              class="flex-1 p-2 border rounded-md"
+            />
+            <button
+              onclick="addItem()"
+              class="bg-blue-600 text-white px-4 py-2 rounded-md font-bold text-lg leading-none"
+            >
+              +
+            </button>
+          </div>
+          <div
+            id="itemList"
+            class="max-h-60 overflow-y-auto space-y-2 border-t pt-2"
+          ></div>
+          <button
+            onclick="closeManager()"
+            class="w-full bg-slate-800 text-white py-2 rounded-lg font-bold"
+          >
+            Закрити
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div
+      id="confirmModal"
+      class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-[60]"
+    >
+      <div
+        class="bg-white rounded-xl p-6 w-full max-w-sm shadow-2xl border-2 transition-all"
+        id="confirmBorder"
+      >
+        <p id="confirmMessage" class="text-center font-bold mb-6 text-sm"></p>
+        <div class="flex gap-2">
+          <button
+            id="confirmYes"
+            class="flex-1 py-2 rounded-lg text-white font-bold transition-all"
+          >
+            Так
+          </button>
+          <button
+            onclick="closeConfirm()"
+            class="flex-1 bg-slate-100 py-2 rounded-lg font-bold text-slate-600"
+          >
+            Скасувати
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      const manifest = {
+        name: "Work Tracker Pro",
+        short_name: "WorkTracker",
+        start_url: ".",
+        display: "standalone",
+        background_color: "#f1f5f9",
+        theme_color: "#3b82f6",
+        icons: [
+          {
+            src: "https://cdn-icons-png.flaticon.com/512/3589/3589030.png",
+            sizes: "512x512",
+            type: "image/png",
+          },
+        ],
+      };
+      document
+        .getElementById("pwa-manifest")
+        .setAttribute(
+          "href",
+          "data:application/json;base64," + btoa(JSON.stringify(manifest)),
+        );
+
+      let isRunning = false,
+        startTime = null,
+        timerInterval = null,
+        editingIndex = null,
+        currentManagerType = null;
+      let tasks = JSON.parse(localStorage.getItem("tasks_v8.1")) || [];
+      let collapsedDays =
+        JSON.parse(localStorage.getItem("collapsedDays_v8.1")) || [];
+
+      const defaultConfig = {
+        dirs: [
+          "Будівництво",
+          "Кошториси / тендери",
+          "Логістика",
+          "Облік / Аудит",
+          "Продажі",
+          "Проєктування",
+          "Постачання",
+          "Технічний нагляд",
+          "Управління",
+        ],
+        depts: [
+          "Адміністрація",
+          "Бухгалтерія",
+          "Продажів",
+          "Технічний",
+          "Юридичний",
+        ],
+        actions: [
+          "Складання плану завдань на день",
+          "Перевірка / відправка пошти",
+          "Підготовка до наради",
+          "Планова нарада",
+          "Нарада",
+          "Робота з дошкою Trello",
+          "Обідня перерва",
+          "Підготовка звіту",
+          "Повітряна тривога",
+        ],
+        targets: [
+          "Функціональні обов'язки",
+          "Запити керівництва",
+          "Контролюючі органи",
+          "Контрагенти",
+          "Інше",
+        ],
+      };
+      let lists =
+        JSON.parse(localStorage.getItem("lists_v8.1")) || defaultConfig;
+
+      window.onload = () => {
+        document.getElementById("reportDate").value = new Date()
+          .toISOString()
+          .split("T")[0];
+        refreshAllLists();
+        saveAndRender();
+      };
+
+      function formatDuration(mins) {
+        if (mins < 60) return `${mins} хв.`;
+        const h = Math.floor(mins / 60);
+        const m = mins % 60;
+        return m > 0 ? `${h} год. ${m} хв.` : `${h} год.`;
+      }
+
+      function refreshAllLists() {
+        populateSelect("userDir", lists.dirs);
+        populateSelect("userDept", lists.depts);
+        populateSelect("taskTarget", lists.targets);
+        populateSelect("editTarget", lists.targets);
+        const dl = document.getElementById("actionList");
+        dl.innerHTML = "";
+        lists.actions.forEach((a) => (dl.innerHTML += `<option value="${a}">`));
+      }
+
+      function populateSelect(id, items) {
+        const s = document.getElementById(id);
+        const val = s.value;
+        s.innerHTML = "";
+        items.forEach((i) => {
+          const o = document.createElement("option");
+          o.value = o.textContent = i;
+          s.appendChild(o);
+        });
+        if (items.includes(val)) s.value = val;
+      }
+
+      function toggleTask() {
+        const btn = document.getElementById("toggleBtn"),
+          tDiv = document.getElementById("timerDisplay"),
+          nInp = document.getElementById("taskName");
+        if (!isRunning) {
+          if (!nInp.value.trim()) return;
+          isRunning = true;
+          startTime = new Date();
+          btn.innerText = "⏹ ЗАВЕРШИТИ";
+          btn.classList.replace("btn-start", "btn-stop");
+          tDiv.classList.remove("hidden");
+          timerInterval = setInterval(() => {
+            const d = new Date(new Date() - startTime);
+            tDiv.innerText =
+              d.getUTCHours().toString().padStart(2, "0") +
+              ":" +
+              d.getUTCMinutes().toString().padStart(2, "0") +
+              ":" +
+              d.getUTCSeconds().toString().padStart(2, "0");
+          }, 1000);
+        } else {
+          clearInterval(timerInterval);
+          const diffMs = new Date() - startTime;
+          let mins = Math.ceil(diffMs / 60000 / 10) * 10;
+          if (mins < 10) mins = 10;
+          tasks.push({
+            id: Date.now().toString(), // String for Sortable
+            name: nInp.value,
+            target: document.getElementById("taskTarget").value,
+            duration: mins,
+            date: document.getElementById("reportDate").value,
+          });
+          saveAndRender();
+          isRunning = false;
+          nInp.value = "";
+          tDiv.classList.add("hidden");
+          btn.innerText = "▶ ПОЧАТИ";
+          btn.classList.replace("btn-stop", "btn-start");
+        }
+      }
+
+      function showConfirm(msg, color, onConfirm) {
+        const modal = document.getElementById("confirmModal");
+        const border = document.getElementById("confirmBorder");
+        const btn = document.getElementById("confirmYes");
+        const text = document.getElementById("confirmMessage");
+        text.innerText = msg;
+        text.style.color = color === "orange" ? "#ea580c" : "#dc2626";
+        border.style.borderColor = color === "orange" ? "#fb923c" : "#ef4444";
+        btn.style.backgroundColor = color === "orange" ? "#ea580c" : "#dc2626";
+        modal.classList.remove("hidden");
+        btn.onclick = () => {
+          closeConfirm();
+          onConfirm();
+        };
+      }
+
+      function closeConfirm() {
+        document.getElementById("confirmModal").classList.add("hidden");
+      }
+
+      function handleClearAll() {
+        showConfirm(
+          "Бажаєте видалити усі записи з журналу активності?",
+          "orange",
+          () => {
+            setTimeout(() => {
+              showConfirm(
+                "Усі записи будуть видалені без можливості відновлення. Ви точно бажаєте продовжити?",
+                "red",
+                () => {
+                  tasks = [];
+                  saveAndRender();
+                },
+              );
+            }, 300);
+          },
+        );
+      }
+
+      function handleDeleteTask(id) {
+        showConfirm("Видалити цю дію?", "orange", () => {
+          tasks = tasks.filter((t) => t.id !== id);
+          saveAndRender();
+        });
+      }
+
+      function saveAndRender() {
+        localStorage.setItem("tasks_v8.1", JSON.stringify(tasks));
+        localStorage.setItem(
+          "collapsedDays_v8.1",
+          JSON.stringify(collapsedDays),
+        );
+
+        const container = document.getElementById("journalContainer");
+        container.innerHTML = "";
+
+        const grouped = tasks.reduce((acc, t) => {
+          acc[t.date] = acc[t.date] || [];
+          acc[t.date].push(t);
+          return acc;
+        }, {});
+
+        const sortedDates = Object.keys(grouped).sort(
+          (a, b) => new Date(b) - new Date(a),
+        );
+        let totalMins = 0;
+
+        sortedDates.forEach((date) => {
+          const dayTasks = grouped[date];
+          const dayTotal = dayTasks.reduce(
+            (sum, t) => sum + parseInt(t.duration),
+            0,
+          );
+          totalMins += dayTotal;
+          const isCollapsed = collapsedDays.includes(date);
+
+          const daySection = document.createElement("div");
+          daySection.className = `day-group ${isCollapsed ? "collapsed" : ""}`;
+          daySection.dataset.date = date;
+
+          daySection.innerHTML = `
+                    <div class="day-header bg-slate-100 p-3 flex justify-between items-center border-y border-slate-200" onclick="toggleDay('${date}', event)">
+                        <div class="flex items-center gap-2">
+                            <span class="text-[10px] transform transition-transform ${isCollapsed ? "" : "rotate-90"}">▶</span>
+                            <span class="font-bold text-slate-700 text-xs">${new Date(date).toLocaleDateString("uk-UA", { weekday: "short", day: "numeric", month: "long" })}</span>
+                        </div>
+                        <span class="bg-blue-100 text-blue-700 px-2 py-0.5 rounded text-[10px] font-bold uppercase">${formatDuration(dayTotal)}</span>
+                    </div>
+                    <div class="task-list divide-y bg-white" data-date="${date}">
+                        ${dayTasks
+                          .map(
+                            (t) => `
+                            <div class="task-row flex items-center p-3" data-id="${t.id}">
+                                <div class="handle px-4 text-slate-300">☰</div>
+                                <div class="flex-1 min-w-0 pr-2 ml-4">
+                                    <div class="font-semibold text-slate-800 text-sm truncate">${t.name}</div>
+                                    <div class="text-[10px] text-slate-400 italic">${t.target}</div>
+                                </div>
+                                <div class="font-bold text-blue-600 text-xs px-2 whitespace-nowrap">${formatDuration(t.duration)}</div>
+                                <div class="flex gap-1 ml-auto">
+                                    <button onclick="openEdit('${t.id}')" class="text-blue-500 p-1.5 text-lg">✎</button>
+                                    <button onclick="handleDeleteTask('${t.id}')" class="text-red-400 p-1.5 text-lg">×</button>
+                                </div>
+                            </div>
+                        `,
+                          )
+                          .join("")}
+                    </div>
+                `;
+          container.appendChild(daySection);
+
+          // Ініціалізація Drag-and-Drop для кожного дня
+          const el = daySection.querySelector(".task-list");
+          new Sortable(el, {
+            handle: ".handle",
+            animation: 150,
+            ghostClass: "sortable-ghost",
+            dragClass: "sortable-drag",
+            onEnd: (evt) => {
+              const date = evt.from.dataset.date;
+              const dayTaskIds = Array.from(evt.from.children).map(
+                (child) => child.dataset.id,
+              );
+
+              // Перебудовуємо масив завдань для цього дня
+              const otherTasks = tasks.filter((t) => t.date !== date);
+              const currentDayTasks = tasks.filter((t) => t.date === date);
+
+              const reorderedDayTasks = dayTaskIds.map((id) =>
+                currentDayTasks.find((t) => t.id === id),
+              );
+              tasks = [...otherTasks, ...reorderedDayTasks];
+
+              localStorage.setItem("tasks_v8.1", JSON.stringify(tasks));
+              // Перемальовуємо тільки для того, щоб оновити № п.п. при експорті (опційно)
+            },
+          });
+        });
+
+        document.getElementById("totalDisplay").innerText =
+          `Всього: ${formatDuration(totalMins)}`;
+      }
+
+      function toggleDay(date, event) {
+        // Щоб клік по іконкам редагування не згортав день
+        if (event.target.closest("button") || event.target.closest(".handle"))
+          return;
+        if (collapsedDays.includes(date))
+          collapsedDays = collapsedDays.filter((d) => d !== date);
+        else collapsedDays.push(date);
+        saveAndRender();
+      }
+
+      function openEdit(id) {
+        editingIndex = tasks.findIndex((t) => t.id === id);
+        const t = tasks[editingIndex];
+        document.getElementById("editName").value = t.name;
+        document.getElementById("editTarget").value = t.target;
+        document.getElementById("editDate").value = t.date;
+        document.getElementById("editHours").value =
+          Math.floor(t.duration / 60) || "";
+        document.getElementById("editMins").value = t.duration % 60;
+        document.getElementById("editModal").classList.remove("hidden");
+      }
+
+      function saveEdit() {
+        const h = parseInt(document.getElementById("editHours").value) || 0;
+        const m = parseInt(document.getElementById("editMins").value) || 0;
+        tasks[editingIndex].name = document.getElementById("editName").value;
+        tasks[editingIndex].target =
+          document.getElementById("editTarget").value;
+        tasks[editingIndex].date = document.getElementById("editDate").value;
+        tasks[editingIndex].duration = h * 60 + m;
+        closeModal();
+        saveAndRender();
+      }
+
+      function closeModal() {
+        document.getElementById("editModal").classList.add("hidden");
+      }
+      function openManager(type) {
+        currentManagerType = type;
+        renderManagerList();
+        document.getElementById("managerModal").classList.remove("hidden");
+      }
+      function renderManagerList() {
+        const c = document.getElementById("itemList");
+        c.innerHTML = "";
+        lists[currentManagerType].forEach((item, idx) => {
+          c.innerHTML += `<div class="flex justify-between items-center p-2 bg-slate-50 border rounded text-xs mb-1"><span>${item}</span><button onclick="removeItem(${idx})" class="text-red-500 font-bold px-2">×</button></div>`;
+        });
+      }
+      function addItem() {
+        const i = document.getElementById("newItemInput");
+        if (!i.value) return;
+        lists[currentManagerType].push(i.value);
+        i.value = "";
+        saveLists();
+        renderManagerList();
+      }
+      function removeItem(idx) {
+        lists[currentManagerType].splice(idx, 1);
+        saveLists();
+        renderManagerList();
+      }
+      function saveLists() {
+        localStorage.setItem("lists_v8.1", JSON.stringify(lists));
+        refreshAllLists();
+      }
+      function closeManager() {
+        document.getElementById("managerModal").classList.add("hidden");
+      }
+
+      async function exportToExcel() {
+        try {
+          const wb = XLSX.utils.book_new();
+          const data = [
+            ["", "", "Напрямок", document.getElementById("userDir").value],
+            ["", "", "Відділ", document.getElementById("userDept").value],
+            ["", "", "Посада", document.getElementById("userPos").value],
+            [
+              "",
+              "",
+              "Прізвище та ім'я",
+              document.getElementById("userName").value,
+            ],
+            [],
+            [
+              "№",
+              "Дата",
+              "Час поч./зав.",
+              "Функціональна дія",
+              "Для кого виконується",
+              "Тривалість",
+            ],
+          ];
+          const grouped = tasks.reduce((acc, t) => {
+            acc[t.date] = acc[t.date] || [];
+            acc[t.date].push(t);
+            return acc;
+          }, {});
+          Object.keys(grouped)
+            .sort()
+            .forEach((date) => {
+              data.push([
+                "",
+                date,
+                document.getElementById("workStart").value,
+                "",
+                "",
+                "",
+              ]);
+              grouped[date].forEach((t, i) =>
+                data.push([
+                  `${i + 1}.`,
+                  "",
+                  "",
+                  t.name,
+                  t.target,
+                  formatDuration(t.duration),
+                ]),
+              );
+              data.push([
+                "",
+                "",
+                document.getElementById("workEnd").value,
+                "",
+                "",
+                "",
+              ]);
+            });
+
+          const ws = XLSX.utils.aoa_to_sheet(data);
+
+          // 3. Встановлюємо ширину колонок (wch - ширина в символах)
+          ws["!cols"] = [
+            { wch: 2 }, // A: № п.п.
+            { wch: 10 }, // B: Дата
+            { wch: 12 }, // C: Час
+            { wch: 64 }, // D: Дія
+            { wch: 24 }, // E: Для кого
+            { wch: 12 }, // F: Тривалість
+          ];
+
+          for (let cell in ws) {
+            if (cell[0] === "!") continue;
+
+            if (ws[cell]) {
+              ws[cell].s = {
+                alignment: {
+                  wrapText: true,
+                  vertical: "center",
+                  horizontal: "left",
+                },
+                font: {
+                  name: "ISOCPEUR",
+                  sz: 12,
+                },
+                border: {
+                  top: { style: "thin", color: { rgb: "111111" } },
+                  bottom: { style: "thin", color: { rgb: "111111" } },
+                  left: { style: "thin", color: { rgb: "111111" } },
+                  right: { style: "thin", color: { rgb: "111111" } },
+                },
+              };
+            }
+          }
+
+          XLSX.utils.book_append_sheet(wb, ws, "Report");
+          XLSX.writeFile(
+            wb,
+            `Report_${document.getElementById("userName").value}_${new Date().toISOString().split("T")[0]}.xlsx`,
+          );
+        } catch (error) {
+          console.error("Помилка при експорті:", error);
+          alert(
+            "Виникла помилка при створенні Excel файлу. Перевірте консоль браузера.",
+          );
+        }
+      }
+
+      async function exportToPDF() {
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF();
+        doc.addFont(
+          "https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.1.66/fonts/Roboto/Roboto-Regular.ttf",
+          "Roboto",
+          "normal",
+        );
+        doc.setFont("Roboto");
+        doc.text(
+          `Прізвище та ім'я: ${document.getElementById("userName").value}`,
+          14,
+          15,
+        );
+        doc.text(
+          `Напрямок: ${document.getElementById("userDir").value}`,
+          14,
+          22,
+        );
+        doc.text(
+          `Відділ: ${document.getElementById("userDept").value}`,
+          14,
+          29,
+        );
+        doc.text(`Посада: ${document.getElementById("userPos").value}`, 14, 36);
+        let rows = [];
+        const grouped = tasks.reduce((acc, t) => {
+          acc[t.date] = acc[t.date] || [];
+          acc[t.date].push(t);
+          return acc;
+        }, {});
+        Object.keys(grouped)
+          .sort()
+          .forEach((date) => {
+            rows.push([
+              "",
+              date,
+              document.getElementById("workStart").value,
+              "",
+              "",
+              "",
+            ]);
+            grouped[date].forEach((t, i) =>
+              rows.push([
+                `${i + 1}.`,
+                "",
+                "",
+                t.name,
+                t.target,
+                formatDuration(t.duration),
+              ]),
+            );
+            rows.push([
+              "",
+              "",
+              document.getElementById("workEnd").value,
+              "",
+              "",
+              "",
+            ]);
+          });
+        doc.autoTable({
+          head: [["№", "Дата", "Час", "Дія", "Отримувач", "Час"]],
+          body: rows,
+          startY: 45,
+          styles: { font: "Roboto" },
+        });
+        doc.save(
+          `Report_${document.getElementById("userName").value}_${new Date().toISOString().split("T")[0]}.pdf`,
+        );
+      }
+
+      function exportToJSON() {
+        const data = JSON.stringify(localStorage);
+        const blob = new Blob([data], { type: "application/json" });
+
+        const a = document.createElement("a");
+        a.href = URL.createObjectURL(blob);
+        a.download = "backup.json";
+        a.click();
+      }
+
+      function importFromJSON() {
+        document.getElementById("fileInput").click();
+      }
+
+      document
+        .getElementById("fileInput")
+        .addEventListener("change", async function () {
+          const file = this.files[0];
+          if (!file) return;
+
+          try {
+            const data = JSON.parse(await file.text());
+
+            localStorage.clear();
+
+            Object.entries(data).forEach(([key, value]) => {
+              localStorage.setItem(key, value);
+            });
+
+            alert("Імпорт завершено");
+            location.reload();
+          } catch (e) {
+            alert("Помилка імпорту");
+            console.error(e);
+          }
+        });
+    </script>
+  </body>
+</html>
